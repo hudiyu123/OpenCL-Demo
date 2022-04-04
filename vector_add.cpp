@@ -7,7 +7,7 @@
 
 int main() {
   try {
-    // Query available platforms.
+    // Query for available platforms.
     std::vector<cl::Platform> platforms;
     cl::Platform::get(&platforms);
 
@@ -20,7 +20,7 @@ int main() {
     // Choose the first available platform.
     auto platform = platforms.front();
 
-    // Query available devices in platform.
+    // Query for available devices.
     std::vector<cl::Device> devices;
     platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
 
@@ -36,10 +36,8 @@ int main() {
 
     // Create a context with device.
     cl::Context context{device};
-    // Create a command queue with context and device.
-    cl::CommandQueue command_queue{context, device};
 
-    // Use raw string store kernel source file.
+    // Use raw string store kernel source code.
     std::string kernel_str{R"(
 kernel void vector_add(global const float *a, global const float *b, global float *c) {
   int i = get_global_id(0);
@@ -47,7 +45,7 @@ kernel void vector_add(global const float *a, global const float *b, global floa
 }
     )"};
 
-    // Create a program with kernel source.
+    // Build a program with kernel source code.
     std::vector<std::string> program_strings{kernel_str};
     cl::Program vector_add_program{context, program_strings};
     // Try to build kernel.
@@ -77,15 +75,18 @@ kernel void vector_add(global const float *a, global const float *b, global floa
     // Create vector add kernel object (represented by cl::KernelFunctor).
     auto vector_add_kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>{vector_add_program, "vector_add"};
 
-    // Start computation.
-    auto args = cl::EnqueueArgs(command_queue, cl::NDRange{1024}, cl::NDRange{64});
+    // Create a command queue with context and device.
+    cl::CommandQueue command_queue{context, device};
+
+    // Enqueue kernel with arguments and perform calculation.
+    auto args = cl::EnqueueArgs(command_queue, cl::NDRange{vector_size});
     vector_add_kernel(args, d_a, d_b, d_c);
 
     // Copy result from device buffer to host vector.
     cl::copy(command_queue, d_c, h_c.begin(), h_c.end());
 
     // Check calculation results.
-    std::cout << "Result: " << h_c.front() << "\n";
+    std::cout << "Result: " << h_c.back() << "\n";
   } catch (const cl::Error& err) {
     std::cerr << "CL ERROR: " << err.what() << "\n";
     return 1;
